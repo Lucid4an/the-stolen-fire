@@ -13,7 +13,12 @@ const G = {
     $('btn-resume').onclick = () => this.resume();
     $('btn-controls').onclick = () => { SFX.init(); SFX.play('ui'); UI.showControls(() => UI.title()); };
     $('btn-controls-p').onclick = () => { SFX.play('ui'); UI.showControls(() => this.openPause()); };
-    $('btn-abandon').onclick = () => { this.resume(); if (this.player && this.player.alive) { this.player.run.hp = 1; this.player.takeHit(99, this.player.cx, 'abandon', true); } };
+    // giving up ends the escape, so it asks for a second click
+    $('btn-abandon').onclick = () => {
+      const b = $('btn-abandon');
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Click again to give up'; SFX.play('deny'); return; }
+      this.resume(); if (this.player.alive) this.player.die('abandon');
+    };
     // a quiet scene behind the title
     this.run = new Run(); this.player = new Player(this.run); this.loadRoom('rock'); this.setupHub();
     UI.title();
@@ -163,8 +168,22 @@ const G = {
   },
   showVictory() { this.mode = 'dead'; UI.victory({ kills: this.run.kills, ichor: this.run.ichor, time: this.run.time, boons: this.run.boons.length }); },
 
+  // Names over doors, rewards and people. Doors always show where they lead.
+  labelList() {
+    const L = [];
+    for (const d of this.doors) if (d.open && d.label) {
+      const col = d.reward ? (d.reward.kind === 'boon' ? TITANS[d.reward.titan].col : REWARDS[d.reward.kind].col) : '#ff9a3a';
+      L.push({ x: d.x, y: d.y - (d.reward ? 54 : 38), text: d.label, col, key: d.near, dim: !d.near });
+    }
+    for (const k of this.pickups) if (k.near) L.push({ x: k.x, y: k.y - 24, text: k.label, col: k.col, key: true });
+    for (const pr of this.props) if (pr.near && pr.label) L.push({ x: pr.x, y: pr.y - 40, text: pr.label, key: true });
+    return L;
+  },
+
   pause() { if (this.mode !== 'play' && this.mode !== 'hub') return; this.pausedFrom = this.mode; this.mode = 'paused'; this.openPause(); },
-  openPause() { $('pause-keys').textContent = UI.hintText(true); UI.open('p-pause', { Escape: () => this.resume() }); },
+  openPause() {
+    const b = $('btn-abandon'); b.hidden = this.pausedFrom !== 'play'; delete b.dataset.armed; b.textContent = 'Give up this escape';
+    $('pause-keys').textContent = UI.hintText(true); UI.open('p-pause', { Escape: () => this.resume() }); },
   resume() { UI.close(); this.mode = this.pausedFrom || 'play'; },
 
   // ---------------------------------------------------------------- frame
@@ -178,6 +197,7 @@ const G = {
     } else if (this.mode === 'title') { this.time += dt; Parts.update(dt); }
     this.render();
     UI.hud(this.run, this.player);
+    UI.labels(this.mode === 'play' || this.mode === 'hub' ? this.labelList() : []);
     UI.boss(this.boss && this.boss.state !== 'perch' && this.boss.hp > 0 ? this.boss : null);
   },
 
@@ -259,8 +279,6 @@ const G = {
     for (const s of this.projectiles) s.draw(ctx);
     for (const k of this.pickups) k.draw(ctx, t);
     for (const d of this.doors) if (d.open && d.reward) drawRewardIcon(ctx, Math.round(d.x), Math.round(d.y - 44 + Math.sin(t * 2 + d.x) * 2), d.reward, t);
-    for (const pr of this.props) if (pr.near && pr.label) drawText(ctx, Controls.prompt() + pr.label, pr.x, pr.y - 44, '#ffffff', 1, 'center');
-    for (const d of this.doors) if (d.near) drawText(ctx, Controls.prompt() + d.label, d.x, d.y - 60, '#ffffff', 1, 'center');
     Nums.draw(ctx);
     ctx.restore();
     if (this.hurtFlash > 0) { ctx.fillStyle = `rgba(160,10,10,${this.hurtFlash * 0.5})`; ctx.fillRect(0, 0, W, H); }

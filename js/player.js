@@ -243,6 +243,12 @@ class Player {
     if (this.run.hp > before) Nums.add(this.cx, this.y - 4, '+' + Math.round(this.run.hp - before), '#7aff9a');
   }
 
+  die(killer) {
+    if (!this.alive) return;
+    this.run.hp = 0; this.state = 'dead'; this.stateT = 0; this.vy = -200; this.atk = null;
+    G.onPlayerDeath(killer);
+  }
+
   takeHit(dmg, fromX, killer, ignoreInvuln = false) {
     if (!this.alive || G.mode !== 'play') return false;
     if (!ignoreInvuln && (this.invuln > 0 || this.state === 'dash')) return false;
@@ -261,8 +267,7 @@ class Player {
         UI.flash('Your heart regrows.'); SFX.play('boon'); Parts.burst(this.cx, this.cy, 30, ['#ff5a7a', '#ffd0d8'], 140, 0.8, { glow: 16 });
         return true;
       }
-      this.run.hp = 0; this.state = 'dead'; this.stateT = 0; this.vy = -200; this.atk = null;
-      G.onPlayerDeath(killer); return true;
+      this.die(killer); return true;
     }
     this.state = 'hurt'; this.stateT = 0; this.atk = null; this.invuln = 0.9;
     this.vx = (sign(this.cx - fromX) || -this.face) * 170; this.vy = -180;

@@ -95,7 +95,6 @@ class Pickup {
   draw(ctx, t) {
     const x = Math.round(this.x), y = Math.round(this.y - 10 + Math.sin(t * 3) * 2), k = this.reward.kind;
     drawRewardIcon(ctx, x, y, this.reward, t);
-    if (this.near) drawText(ctx, Controls.prompt() + this.label, x, y - 16, '#ffffff', 1, 'center');
   }
 }
 

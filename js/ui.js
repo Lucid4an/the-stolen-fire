@@ -32,6 +32,21 @@ const UI = {
     $('boons').innerHTML = run.boons.map((id) => { const b = BOONS.find((x) => x.id === id); return `<span style="--c:${TITANS[b.titan].col}" title="${esc(b.name)}: ${esc(b.desc)}">${esc(b.name)}</span>`; }).join('');
     $('dash-pips').textContent = '◆'.repeat(p.dashCharges) + '◇'.repeat(Math.max(0, run.dashMax - p.dashCharges));
   },
+  // World-space labels drawn as HTML so they stay sharp at any scale.
+  labels(list) {
+    const root = $('labels');
+    while (root.children.length < list.length) root.appendChild(document.createElement('div'));
+    [...root.children].forEach((el, i) => {
+      const L = list[i];
+      if (!L) { el.hidden = true; return; }
+      const html = (L.key ? `<kbd>${esc(Controls.label('interact'))}</kbd>` : '') + esc(L.text);
+      if (el._html !== html) { el.innerHTML = html; el._html = html; }
+      el.hidden = false; el.className = 'lb' + (L.dim ? ' dim' : '');
+      el.style.setProperty('--c', L.col || 'var(--line)');
+      el.style.left = `calc(var(--px) * ${Math.round(L.x - Cam.sx)})`;
+      el.style.top = `calc(var(--px) * ${Math.round(L.y - Cam.sy)})`;
+    });
+  },
   boss(e) {
     $('bossbar').hidden = !e;
     if (e) { $('boss-name').textContent = e.name; $('boss-fill').style.width = (clamp(e.hp / e.maxHp, 0, 1) * 100) + '%'; }

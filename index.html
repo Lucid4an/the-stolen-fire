@@ -57,7 +57,7 @@
   #say-who { font-family: var(--carved); letter-spacing: .18em; font-size: calc(var(--px) * 5.5); }
   #say-line { font-size: calc(var(--px) * 6.5); }
   #flash { position: absolute; left: 50%; bottom: calc(var(--px) * 22); transform: translateX(-50%); background: rgba(8,3,2,.86); border: var(--px) solid var(--line); padding: calc(var(--px) * 2) calc(var(--px) * 7); font-size: calc(var(--px) * 6.5); white-space: nowrap; }
-  .keys { position: absolute; left: calc(var(--px) * 8); bottom: calc(var(--px) * 6); font-size: calc(var(--px) * 5); color: #7a6452; text-shadow: 0 var(--px) 0 #000; }
+  .keys { position: absolute; left: calc(var(--px) * 8); bottom: calc(var(--px) * 6); font-size: max(11px, calc(var(--px) * 5)); color: #7a6452; text-shadow: 0 var(--px) 0 #000; }
 
   /* Panels: carved stone tablets */
   .panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92%, calc(var(--px) * 300)); max-height: 92%; overflow: auto; box-sizing: border-box;
@@ -113,6 +113,11 @@
   #touch .acts { right: 16px; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); }
   #touch button { border-radius: 50%; background: rgba(255,138,42,.14); border: 2px solid rgba(255,138,42,.45); color: var(--bone); font: 12px var(--ui); }
   #touch button.on { background: rgba(255,138,42,.45); }
+  /* names over doors, rewards and people */
+  #labels { overflow: hidden; }
+  #labels .lb { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-size: max(14px, calc(var(--px) * 6.5)); line-height: 1; color: var(--bone); background: rgba(8, 3, 2, .86); padding: max(4px, calc(var(--px) * 2)) max(7px, calc(var(--px) * 4)); box-shadow: inset 0 calc(var(--px) * -1) 0 var(--c), 0 0 0 var(--px) rgba(0, 0, 0, .6); }
+  #labels .lb.dim { color: var(--c); font-size: max(12px, calc(var(--px) * 5.5)); background: rgba(8, 3, 2, .7); box-shadow: none; }
+  #labels kbd { font: inherit; color: var(--void); background: var(--fire); padding: 0 max(3px, calc(var(--px) * 2)); margin-right: max(5px, calc(var(--px) * 3)); }
   /* controls screen */
   #p-controls { width: min(96%, calc(var(--px) * 300)); }
   .binds { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, calc(var(--px) * 42)); gap: calc(var(--px) * 2) calc(var(--px) * 3); align-items: center; text-align: left; font-size: calc(var(--px) * 6); }
@@ -128,6 +133,7 @@
 <div id="app">
   <div id="stage">
     <canvas id="game" width="480" height="270" aria-label="The Stolen Fire"></canvas>
+    <div id="labels" class="layer" aria-hidden="true"></div>
 
     <div id="hud" class="layer" hidden>
       <div class="tl">
@@ -175,14 +181,14 @@
   <div class="acts"><button data-a="cast">Cast</button><button data-a="special">Spec</button><button data-a="interact">Use</button><button data-a="dash">Dash</button><button data-a="attack">Hit</button><button data-a="jump">Jump</button></div>
 </div>
 
-<script src="js/core.js"></script>
-<script src="js/gfx.js"></script>
-<script src="js/rooms.js"></script>
-<script src="js/room.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/data.js"></script>
-<script src="js/player.js"></script>
-<script src="js/enemies.js"></script>
-<script src="js/run.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
+<script src="js/core.js?v=2026.09.30.1"></script>
+<script src="js/gfx.js?v=2026.09.30.1"></script>
+<script src="js/rooms.js?v=2026.09.30.1"></script>
+<script src="js/room.js?v=2026.09.30.1"></script>
+<script src="js/sprites.js?v=2026.09.30.1"></script>
+<script src="js/data.js?v=2026.09.30.1"></script>
+<script src="js/player.js?v=2026.09.30.1"></script>
+<script src="js/enemies.js?v=2026.09.30.1"></script>
+<script src="js/run.js?v=2026.09.30.1"></script>
+<script src="js/ui.js?v=2026.09.30.1"></script>
+<script src="js/main.js?v=2026.09.30.1"></script>
