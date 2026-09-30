@@ -16,18 +16,18 @@ Prometheus stole fire from the gods and gave it to humanity. Zeus chained him to
 
 ## Controls
 
-Every action can be rebound from **Controls** on the title screen or in the pause menu: two keyboard keys and one gamepad button each. Your bindings are saved in the browser. The defaults are:
+Every action can be rebound from **Controls** on the title screen or in the pause menu: two keyboard keys, a mouse button and a gamepad button each. Your bindings are saved in the browser. The defaults are:
 
-| Action | Keyboard | Gamepad |
-| --- | --- | --- |
-| Move | A / D or arrows | Left stick / D-pad |
-| Jump / double jump | Space or Z (press again in the air) | A |
-| Attack | J or X | X |
-| Special | K or C | Y |
-| Dash | Shift or L | B, LT or RT |
-| Cast fire | I or V | RB |
-| Use / talk | E or F | LB |
-| Pause | Esc or P | Start |
+| Action | Keyboard | Mouse | Gamepad |
+| --- | --- | --- | --- |
+| Move | A / D or arrows | | Left stick / D-pad |
+| Jump / double jump | Space or Z (press again in the air) | | A |
+| Attack | J or X | Left click | X |
+| Special | K or C | Right click | Y |
+| Dash | Shift or L | | B, LT or RT |
+| Cast fire | I or V | Middle click | RB |
+| Use / talk | E or F | | LB |
+| Pause | Esc or P | | Start |
 
 Jump into a rock wall while holding toward it to grab the ledge and pull yourself up. Hold down during the grab to let go. You can also slide down walls and wall-jump.
 

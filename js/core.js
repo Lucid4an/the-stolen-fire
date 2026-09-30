@@ -16,9 +16,9 @@ const easeOut = (t) => 1 - (1 - t) * (1 - t);
 
 // ---------------------------------------------------------------- input
 const KEYMAP = {
-  left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
-  jump: ['Space', 'KeyZ'], attack: ['KeyJ', 'KeyX'], special: ['KeyK', 'KeyC'], dash: ['ShiftLeft', 'KeyL'],
-  cast: ['KeyI', 'KeyV'], interact: ['KeyE', 'KeyF'], pause: ['Escape', 'KeyP'],
+  left: ['KeyA', 'ArrowLeft', null], right: ['KeyD', 'ArrowRight', null], up: ['KeyW', 'ArrowUp', null], down: ['KeyS', 'ArrowDown', null],
+  jump: ['Space', 'KeyZ', null], attack: ['KeyJ', 'KeyX', 'Mouse0'], special: ['KeyK', 'KeyC', 'Mouse2'], dash: ['ShiftLeft', 'KeyL', null],
+  cast: ['KeyI', 'KeyV', 'Mouse1'], interact: ['KeyE', 'KeyF', null], pause: ['Escape', 'KeyP', null],
 };
 const PADMAP = { jump: [0], dash: [1, 6, 7], attack: [2], special: [3], cast: [5], interact: [4], pause: [9] };
 const DEFAULT_KEYS = JSON.parse(JSON.stringify(KEYMAP)), DEFAULT_PAD = JSON.parse(JSON.stringify(PADMAP));
@@ -34,6 +34,18 @@ const Input = {
     });
     addEventListener('keyup', (e) => this.keys.delete(KEY_NORM[e.code] || e.code));
     addEventListener('blur', () => this.keys.clear());
+    // Mouse buttons count as keys named Mouse0..Mouse4, but only over the game, not over menus.
+    const overGame = (e) => G && (G.mode === 'play' || G.mode === 'hub') && !(e.target.closest && e.target.closest('.panel, button, #touch'));
+    let touchT = -1e9;
+    addEventListener('touchstart', () => { touchT = performance.now(); }, { passive: true });
+    addEventListener('mousedown', (e) => {
+      if (performance.now() - touchT < 800 || !overGame(e)) return;
+      e.preventDefault(); this.keys.add('Mouse' + e.button); this.device = 'kb';
+    });
+    addEventListener('mouseup', (e) => { this.keys.delete('Mouse' + e.button); if (e.button > 2 && overGame(e)) e.preventDefault(); });
+    addEventListener('contextmenu', (e) => { if (overGame(e)) e.preventDefault(); });
+    // side buttons would otherwise send the browser back or forward
+    addEventListener('auxclick', (e) => { if (e.button > 2 && overGame(e)) e.preventDefault(); });
   },
   update() {
     const now = {};
@@ -109,7 +121,7 @@ const SFX = {
 // ---------------------------------------------------------------- rebindable controls
 const ACTIONS = [['left', 'Move left'], ['right', 'Move right'], ['up', 'Look up / take'], ['down', 'Down / drop through'], ['jump', 'Jump / double jump'],
   ['attack', 'Attack'], ['special', 'Special'], ['dash', 'Dash'], ['cast', 'Cast fire'], ['interact', 'Use / talk'], ['pause', 'Pause']];
-const KEY_NAMES = { Space: 'Space', Escape: 'Esc', ShiftLeft: 'Shift', ControlLeft: 'Ctrl', AltLeft: 'Alt', MetaLeft: 'Meta', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+const KEY_NAMES = { Mouse0: 'L-click', Mouse1: 'M-click', Mouse2: 'R-click', Mouse3: 'Mouse 4', Mouse4: 'Mouse 5', Space: 'Space', Escape: 'Esc', ShiftLeft: 'Shift', ControlLeft: 'Ctrl', AltLeft: 'Alt', MetaLeft: 'Meta', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
   Enter: 'Enter', Tab: 'Tab', Backspace: 'Bksp', CapsLock: 'Caps', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: '’', Comma: ',', Period: '.', Slash: '/', Backslash: '\\' };
 const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS'];
 function keyName(c) {
@@ -125,6 +137,9 @@ const Controls = {
   apply() {
     const S = Save.data;
     for (const a of Object.keys(DEFAULT_KEYS)) KEYMAP[a] = (S.keys && S.keys[a] ? S.keys[a] : DEFAULT_KEYS[a]).slice();
+    // bindings saved before the mouse column existed get the default mouse button if it is free
+    const used = new Set(Object.values(KEYMAP).flat());
+    for (const a of Object.keys(DEFAULT_KEYS)) while (KEYMAP[a].length < 3) { const d = DEFAULT_KEYS[a][KEYMAP[a].length]; KEYMAP[a].push(d && !used.has(d) ? d : null); }
     for (const a of Object.keys(DEFAULT_PAD)) PADMAP[a] = (S.pad && S.pad[a] ? S.pad[a] : DEFAULT_PAD[a]).slice();
   },
   save() { Save.data.keys = JSON.parse(JSON.stringify(KEYMAP)); Save.data.pad = JSON.parse(JSON.stringify(PADMAP)); Save.write(); },

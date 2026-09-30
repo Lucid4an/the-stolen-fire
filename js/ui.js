@@ -67,11 +67,11 @@ const UI = {
     const nameOf = (a) => ACTIONS.find((x) => x[0] === a)[1];
     const isWait = (kind, a, s) => wait && wait.kind === kind && wait.act === a && wait.slot === s;
     const render = (focus) => {
-      const key = (a, s) => `<button type="button" class="key${isWait('key', a, s) ? ' wait' : ''}" data-k="key" data-a="${a}" data-s="${s}">${isWait('key', a, s) ? 'Press a key' : esc(keyName(KEYMAP[a][s]))}</button>`;
+      const key = (a, s) => `<button type="button" class="key${isWait('key', a, s) ? ' wait' : ''}" data-k="key" data-a="${a}" data-s="${s}">${isWait('key', a, s) ? (s === 2 ? 'Click' : 'Press a key') : esc(keyName(KEYMAP[a][s]))}</button>`;
       const pad = (a) => PADMAP[a] ? `<button type="button" class="key${isWait('pad', a, 0) ? ' wait' : ''}" data-k="pad" data-a="${a}" data-s="0">${isWait('pad', a, 0) ? 'Press a button' : esc(PADMAP[a].map(padName).join(' / ') || '—')}</button>` : '<span class="fixed">Stick / D-pad</span>';
-      $('p-controls').innerHTML = `<h2>Controls</h2><p class="line ${note ? 'note' : 'dim'}" aria-live="polite">${esc(note || 'Pick a slot, then press the key or gamepad button you want. Esc cancels. Backspace clears a key slot.')}</p>
-        <div class="binds"><span></span><span class="hd">Key</span><span class="hd">Other key</span><span class="hd">Gamepad</span>
-        ${ACTIONS.map(([a, n]) => `<span class="act">${esc(n)}</span>${key(a, 0)}${key(a, 1)}${pad(a)}`).join('')}</div>
+      $('p-controls').innerHTML = `<h2>Controls</h2><p class="line ${note ? 'note' : 'dim'}" aria-live="polite">${esc(note || 'Pick a slot, then press a key, click a mouse button or press a gamepad button. Esc cancels. Backspace clears a slot.')}</p>
+        <div class="binds"><span></span><span class="hd">Key</span><span class="hd">Other key</span><span class="hd">Mouse</span><span class="hd">Gamepad</span>
+        ${ACTIONS.map(([a, n]) => `<span class="act">${esc(n)}</span>${key(a, 0)}${key(a, 1)}${key(a, 2)}${pad(a)}`).join('')}</div>
         <div class="row"><button type="button" id="ct-done">Done</button><button type="button" class="ghost" id="ct-reset">Reset to defaults</button></div>`;
       $('p-controls').querySelectorAll('.key').forEach((el) => el.onclick = () => {
         SFX.play('ui'); wait = { kind: el.dataset.k, act: el.dataset.a, slot: +el.dataset.s, armed: false }; note = '';
@@ -96,6 +96,16 @@ const UI = {
       if (code === 'Backspace' || code === 'Delete') { KEYMAP[w.act][w.slot] = null; finish(null); return; }
       finish(Controls.setKey(w.act, w.slot, code), keyName(code));
     };
+    // mouse buttons bind too; the click that follows is swallowed so it does not press a menu button
+    const onMouse = (e) => {
+      if (!wait || wait.kind !== 'key') return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      const w = wait, code = 'Mouse' + e.button;
+      const swallow = (ev) => { ev.preventDefault(); ev.stopImmediatePropagation(); };
+      for (const t of ['click', 'auxclick', 'contextmenu']) addEventListener(t, swallow, { capture: true, once: true });
+      setTimeout(() => { for (const t of ['click', 'auxclick', 'contextmenu']) removeEventListener(t, swallow, { capture: true }); }, 400);
+      finish(Controls.setKey(w.act, w.slot, code), keyName(code));
+    };
     const pollPad = () => {
       if (!wait || wait.kind !== 'pad' || this.panel !== 'p-controls') return;
       let hit = null;
@@ -104,8 +114,8 @@ const UI = {
       else if (wait.armed) { finish(Controls.setPad(wait.act, hit), padName(hit)); return; }
       setTimeout(pollPad, 30);
     };
-    const done = () => { if (wait) { wait = null; render(); return; } removeEventListener('keydown', onKey, true); SFX.play('ui'); this.lastHint = null; back(); };
-    addEventListener('keydown', onKey, true);
+    const done = () => { if (wait) { wait = null; render(); return; } removeEventListener('keydown', onKey, true); removeEventListener('mousedown', onMouse, true); SFX.play('ui'); this.lastHint = null; back(); };
+    addEventListener('keydown', onKey, true); addEventListener('mousedown', onMouse, true);
     render();
     this.open('p-controls', { Escape: () => done() });
   },
