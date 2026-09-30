@@ -113,6 +113,15 @@
   #touch .acts { right: 16px; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); }
   #touch button { border-radius: 50%; background: rgba(255,138,42,.14); border: 2px solid rgba(255,138,42,.45); color: var(--bone); font: 12px var(--ui); }
   #touch button.on { background: rgba(255,138,42,.45); }
+  /* controls screen */
+  #p-controls { width: min(94%, calc(var(--px) * 280)); }
+  .binds { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, calc(var(--px) * 48)); gap: calc(var(--px) * 2) calc(var(--px) * 3); align-items: center; text-align: left; font-size: calc(var(--px) * 6); }
+  .binds .hd { font-size: calc(var(--px) * 4.5); letter-spacing: .15em; text-transform: uppercase; color: var(--ash); text-align: center; }
+  .binds .act { color: var(--bone); }
+  .binds .fixed { font-size: calc(var(--px) * 5); color: var(--ash); text-align: center; }
+  .panel .binds button.key { padding: calc(var(--px) * 2) calc(var(--px) * 3); font-size: calc(var(--px) * 6); background: var(--stone2); color: var(--bone); box-shadow: inset 0 0 0 var(--px) var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel .binds button.key.wait { color: var(--fire); box-shadow: inset 0 0 0 var(--px) var(--fire); }
+  .panel .note { min-height: 1.3em; color: var(--fire); }
   @media (prefers-reduced-motion: reduce) { .panel button { transition: none; } }
 </style>
 
@@ -130,7 +139,7 @@
       <div id="bossbar" hidden><div id="boss-name"></div><div class="bar"><i id="boss-fill"></i></div></div>
       <div id="say" hidden><span id="say-who"></span><span id="say-line"></span></div>
       <div id="flash" hidden></div>
-      <div class="keys">Space jump (again in the air) &middot; J attack &middot; K special &middot; I cast fire &middot; Shift dash &middot; E use &middot; Esc pause</div>
+      <div class="keys" id="key-hints"></div>
     </div>
 
     <div class="layer" style="pointer-events:none">
@@ -140,6 +149,7 @@
         <nav id="title-menu">
           <button type="button" id="btn-start">Begin the escape</button>
           <button type="button" class="ghost" id="btn-story">The story</button>
+          <button type="button" class="ghost" id="btn-controls">Controls</button>
           <button type="button" class="ghost" id="btn-sound">Sound: on</button>
         </nav>
         <div id="title-stats"></div>
@@ -150,10 +160,11 @@
       <div class="panel" id="p-weapon" hidden></div>
       <div class="panel" id="p-altar" hidden></div>
       <div class="panel" id="p-death" hidden></div>
+      <div class="panel" id="p-controls" hidden></div>
       <div class="panel" id="p-pause" hidden>
         <h2>Paused</h2>
-        <p class="line dim">A/D move &middot; Space jump (hold toward a wall to slide, jump off it) &middot; J attack &middot; K special &middot; I cast the fire &middot; Shift dash (in the air too) &middot; E use doors, rewards and people &middot; S + Space drops through ledges. Gamepad supported.</p>
-        <div class="row"><button type="button" id="btn-resume">Resume</button><button type="button" class="ghost" id="btn-abandon">Give up this escape</button></div>
+        <p class="line dim" id="pause-keys"></p>
+        <div class="row"><button type="button" id="btn-resume">Resume</button><button type="button" class="ghost" id="btn-controls-p">Controls</button><button type="button" class="ghost" id="btn-abandon">Give up this escape</button></div>
       </div>
     </div>
   </div>

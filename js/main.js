@@ -6,11 +6,13 @@ const G = {
   boss: null, hitstop: 0, hurtFlash: 0, waves: 0, cleared: false, deathT: 0, victoryT: 0, thunder: 0, boltT: 3,
 
   init() {
-    Save.load(); Gfx.init(); Input.init(); UI.init(); Backdrop.build();
+    Save.load(); Controls.apply(); Gfx.init(); Input.init(); UI.init(); Backdrop.build();
     $('btn-start').onclick = () => { SFX.init(); SFX.play('ui'); if (Save.data.seen.story) this.enterHub(false, true); else UI.story(() => { Save.data.seen.story = true; Save.write(); this.enterHub(false, true); }); };
     $('btn-story').onclick = () => { SFX.init(); SFX.play('ui'); UI.story(() => UI.title()); };
     $('btn-sound').onclick = () => { SFX.init(); SFX.muted = !SFX.muted; $('btn-sound').textContent = 'Sound: ' + (SFX.muted ? 'off' : 'on'); };
     $('btn-resume').onclick = () => this.resume();
+    $('btn-controls').onclick = () => { SFX.init(); SFX.play('ui'); UI.showControls(() => UI.title()); };
+    $('btn-controls-p').onclick = () => { SFX.play('ui'); UI.showControls(() => this.openPause()); };
     $('btn-abandon').onclick = () => { this.resume(); if (this.player && this.player.alive) { this.player.run.hp = 1; this.player.takeHit(99, this.player.cx, 'abandon', true); } };
     // a quiet scene behind the title
     this.run = new Run(); this.player = new Player(this.run); this.loadRoom('rock'); this.setupHub();
@@ -161,7 +163,8 @@ const G = {
   },
   showVictory() { this.mode = 'dead'; UI.victory({ kills: this.run.kills, ichor: this.run.ichor, time: this.run.time, boons: this.run.boons.length }); },
 
-  pause() { if (this.mode !== 'play' && this.mode !== 'hub') return; this.pausedFrom = this.mode; this.mode = 'paused'; UI.open('p-pause', { Escape: () => this.resume() }); },
+  pause() { if (this.mode !== 'play' && this.mode !== 'hub') return; this.pausedFrom = this.mode; this.mode = 'paused'; this.openPause(); },
+  openPause() { $('pause-keys').textContent = UI.hintText(true); UI.open('p-pause', { Escape: () => this.resume() }); },
   resume() { UI.close(); this.mode = this.pausedFrom || 'play'; },
 
   // ---------------------------------------------------------------- frame
@@ -256,8 +259,8 @@ const G = {
     for (const s of this.projectiles) s.draw(ctx);
     for (const k of this.pickups) k.draw(ctx, t);
     for (const d of this.doors) if (d.open && d.reward) drawRewardIcon(ctx, Math.round(d.x), Math.round(d.y - 44 + Math.sin(t * 2 + d.x) * 2), d.reward, t);
-    for (const pr of this.props) if (pr.near && pr.label) drawText(ctx, (Input.device === 'pad' ? '[LB] ' : '[E] ') + pr.label, pr.x, pr.y - 44, '#ffffff', 1, 'center');
-    for (const d of this.doors) if (d.near) drawText(ctx, (Input.device === 'pad' ? '[LB] ' : '[E] ') + d.label, d.x, d.y - 60, '#ffffff', 1, 'center');
+    for (const pr of this.props) if (pr.near && pr.label) drawText(ctx, Controls.prompt() + pr.label, pr.x, pr.y - 44, '#ffffff', 1, 'center');
+    for (const d of this.doors) if (d.near) drawText(ctx, Controls.prompt() + d.label, d.x, d.y - 60, '#ffffff', 1, 'center');
     Nums.draw(ctx);
     ctx.restore();
     if (this.hurtFlash > 0) { ctx.fillStyle = `rgba(160,10,10,${this.hurtFlash * 0.5})`; ctx.fillRect(0, 0, W, H); }

@@ -17,19 +17,22 @@ const easeOut = (t) => 1 - (1 - t) * (1 - t);
 // ---------------------------------------------------------------- input
 const KEYMAP = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
-  jump: ['Space', 'KeyZ'], attack: ['KeyJ', 'KeyX'], special: ['KeyK', 'KeyC'], dash: ['ShiftLeft', 'ShiftRight', 'KeyL'],
+  jump: ['Space', 'KeyZ'], attack: ['KeyJ', 'KeyX'], special: ['KeyK', 'KeyC'], dash: ['ShiftLeft', 'KeyL'],
   cast: ['KeyI', 'KeyV'], interact: ['KeyE', 'KeyF'], pause: ['Escape', 'KeyP'],
 };
-const PADMAP = { jump: 0, dash: 1, attack: 2, special: 3, cast: 5, interact: 4, pause: 9 };
+const PADMAP = { jump: [0], dash: [1, 6, 7], attack: [2], special: [3], cast: [5], interact: [4], pause: [9] };
+const DEFAULT_KEYS = JSON.parse(JSON.stringify(KEYMAP)), DEFAULT_PAD = JSON.parse(JSON.stringify(PADMAP));
+// left and right modifier keys count as the same key
+const KEY_NORM = { ShiftRight: 'ShiftLeft', ControlRight: 'ControlLeft', AltRight: 'AltLeft', MetaRight: 'MetaLeft' };
 
 const Input = {
   down: {}, pressed: {}, released: {}, keys: new Set(), touch: {}, device: 'kb',
   init() {
     addEventListener('keydown', (e) => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
-      this.keys.add(e.code); this.device = 'kb';
+      this.keys.add(KEY_NORM[e.code] || e.code); this.device = 'kb';
     });
-    addEventListener('keyup', (e) => this.keys.delete(e.code));
+    addEventListener('keyup', (e) => this.keys.delete(KEY_NORM[e.code] || e.code));
     addEventListener('blur', () => this.keys.clear());
   },
   update() {
@@ -42,8 +45,7 @@ const Input = {
       if (Math.abs(ax) > 0.5 || Math.abs(ay) > 0.5 || p.buttons.some((x) => x.pressed)) this.device = 'pad';
       now.left = now.left || ax < -0.4 || b(14); now.right = now.right || ax > 0.4 || b(15);
       now.up = now.up || ay < -0.5 || b(12); now.down = now.down || ay > 0.5 || b(13);
-      for (const [act, i] of Object.entries(PADMAP)) now[act] = now[act] || b(i);
-      now.dash = now.dash || b(7) || b(6);
+      for (const [act, list] of Object.entries(PADMAP)) now[act] = now[act] || list.some(b);
     }
     for (const act of Object.keys(KEYMAP)) {
       this.pressed[act] = now[act] && !this.down[act];
@@ -102,6 +104,51 @@ const SFX = {
       case 'block': this.tone(900, 0.06, 'square', 0.12, -300); break;
     }
   },
+};
+
+// ---------------------------------------------------------------- rebindable controls
+const ACTIONS = [['left', 'Move left'], ['right', 'Move right'], ['up', 'Look up / take'], ['down', 'Down / drop through'], ['jump', 'Jump / double jump'],
+  ['attack', 'Attack'], ['special', 'Special'], ['dash', 'Dash'], ['cast', 'Cast fire'], ['interact', 'Use / talk'], ['pause', 'Pause']];
+const KEY_NAMES = { Space: 'Space', Escape: 'Esc', ShiftLeft: 'Shift', ControlLeft: 'Ctrl', AltLeft: 'Alt', MetaLeft: 'Meta', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+  Enter: 'Enter', Tab: 'Tab', Backspace: 'Bksp', CapsLock: 'Caps', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: '’', Comma: ',', Period: '.', Slash: '/', Backslash: '\\' };
+const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS'];
+function keyName(c) {
+  if (!c) return '—';
+  if (KEY_NAMES[c]) return KEY_NAMES[c];
+  if (c.startsWith('Key')) return c.slice(3);
+  if (c.startsWith('Digit')) return c.slice(5);
+  if (c.startsWith('Numpad')) return 'Num ' + c.slice(6);
+  return c;
+}
+const padName = (i) => (i == null ? '—' : PAD_NAMES[i] || 'Button ' + i);
+const Controls = {
+  apply() {
+    const S = Save.data;
+    for (const a of Object.keys(DEFAULT_KEYS)) KEYMAP[a] = (S.keys && S.keys[a] ? S.keys[a] : DEFAULT_KEYS[a]).slice();
+    for (const a of Object.keys(DEFAULT_PAD)) PADMAP[a] = (S.pad && S.pad[a] ? S.pad[a] : DEFAULT_PAD[a]).slice();
+  },
+  save() { Save.data.keys = JSON.parse(JSON.stringify(KEYMAP)); Save.data.pad = JSON.parse(JSON.stringify(PADMAP)); Save.write(); },
+  reset() { delete Save.data.keys; delete Save.data.pad; Save.write(); this.apply(); },
+  // Puts a key in one slot; returns the action it was taken from, if any.
+  setKey(act, slot, code) {
+    let from = null;
+    for (const a of Object.keys(KEYMAP)) KEYMAP[a] = KEYMAP[a].map((c, s) => { if (c === code && !(a === act && s === slot)) { if (a !== act) from = a; return null; } return c; });
+    while (KEYMAP[act].length <= slot) KEYMAP[act].push(null);
+    KEYMAP[act][slot] = code;
+    return from;
+  },
+  setPad(act, i) {
+    let from = null;
+    for (const a of Object.keys(PADMAP)) if (a !== act && PADMAP[a].includes(i)) { PADMAP[a] = PADMAP[a].filter((x) => x !== i); from = a; }
+    PADMAP[act] = [i];
+    return from;
+  },
+  // First bound key (or pad button) for an action, for prompts and hints.
+  label(act) {
+    if (Input.device === 'pad' && PADMAP[act]) return padName(PADMAP[act][0]);
+    const c = KEYMAP[act].find(Boolean); return c ? keyName(c) : '—';
+  },
+  prompt() { return '[' + this.label('interact') + '] '; },
 };
 
 // ---------------------------------------------------------------- save (per-browser, optional)

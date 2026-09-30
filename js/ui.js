@@ -27,6 +27,7 @@ const UI = {
     $('flame-fill').style.width = run.flame + '%';
     $('flame-bar').classList.toggle('ready', run.flame >= PM.castCost);
     $('ichor').textContent = Save.data.ichor;
+    const hint = this.hintText(false); if (hint !== this.lastHint) { $('key-hints').textContent = hint; this.lastHint = hint; }
     $('where').textContent = G.mode === 'hub' ? 'The Rock' : 'Tartarus · chamber ' + (run.depth + 1) + ' of ' + run.plan.length;
     $('boons').innerHTML = run.boons.map((id) => { const b = BOONS.find((x) => x.id === id); return `<span style="--c:${TITANS[b.titan].col}" title="${esc(b.name)}: ${esc(b.desc)}">${esc(b.name)}</span>`; }).join('');
     $('dash-pips').textContent = '◆'.repeat(p.dashCharges) + '◇'.repeat(Math.max(0, run.dashMax - p.dashCharges));
@@ -50,7 +51,63 @@ const UI = {
     let i = btns.indexOf(document.activeElement);
     if (['ArrowDown', 'ArrowRight', 'KeyS', 'KeyD'].includes(e.code)) { e.preventDefault(); btns[(i + 1) % btns.length].focus(); SFX.play('ui'); }
     else if (['ArrowUp', 'ArrowLeft', 'KeyW', 'KeyA'].includes(e.code)) { e.preventDefault(); btns[(i - 1 + btns.length) % btns.length].focus(); SFX.play('ui'); }
-    else if (['KeyJ', 'KeyE', 'Space'].includes(e.code) && document.activeElement.tagName === 'BUTTON') { e.preventDefault(); document.activeElement.click(); }
+    else if (['KeyJ', 'KeyE', 'Space', ...KEYMAP.attack, ...KEYMAP.interact, ...KEYMAP.jump].includes(KEY_NORM[e.code] || e.code) && document.activeElement.tagName === 'BUTTON') { e.preventDefault(); document.activeElement.click(); }
+  },
+
+  // Control hints that follow the player's bindings.
+  hintText(long) {
+    const k = (a) => Controls.label(a);
+    if (!long) return `${k('jump')} jump (again in the air) · ${k('attack')} attack · ${k('special')} special · ${k('cast')} cast fire · ${k('dash')} dash · ${k('interact')} use · ${k('pause')} pause`;
+    return `${k('left')}/${k('right')} move · ${k('jump')} jump, press again in the air to double jump · jump into a wall’s edge to climb it · ${k('attack')} attack · ${k('special')} special · ${k('cast')} cast the fire · ${k('dash')} dash · ${k('interact')} use doors, rewards and people · ${k('down')} + ${k('jump')} drops through ledges.`;
+  },
+
+  // Rebind any action: two keyboard slots and one gamepad button each.
+  showControls(back) {
+    let wait = null, note = '';
+    const nameOf = (a) => ACTIONS.find((x) => x[0] === a)[1];
+    const isWait = (kind, a, s) => wait && wait.kind === kind && wait.act === a && wait.slot === s;
+    const render = (focus) => {
+      const key = (a, s) => `<button type="button" class="key${isWait('key', a, s) ? ' wait' : ''}" data-k="key" data-a="${a}" data-s="${s}">${isWait('key', a, s) ? 'Press a key' : esc(keyName(KEYMAP[a][s]))}</button>`;
+      const pad = (a) => PADMAP[a] ? `<button type="button" class="key${isWait('pad', a, 0) ? ' wait' : ''}" data-k="pad" data-a="${a}" data-s="0">${isWait('pad', a, 0) ? 'Press a button' : esc(PADMAP[a].map(padName).join(' / ') || '—')}</button>` : '<span class="fixed">Stick / D-pad</span>';
+      $('p-controls').innerHTML = `<h2>Controls</h2><p class="line ${note ? 'note' : 'dim'}" aria-live="polite">${esc(note || 'Pick a slot, then press the key or gamepad button you want. Esc cancels. Backspace clears a key slot.')}</p>
+        <div class="binds"><span></span><span class="hd">Key</span><span class="hd">Other key</span><span class="hd">Gamepad</span>
+        ${ACTIONS.map(([a, n]) => `<span class="act">${esc(n)}</span>${key(a, 0)}${key(a, 1)}${pad(a)}`).join('')}</div>
+        <div class="row"><button type="button" id="ct-done">Done</button><button type="button" class="ghost" id="ct-reset">Reset to defaults</button></div>`;
+      $('p-controls').querySelectorAll('.key').forEach((el) => el.onclick = () => {
+        SFX.play('ui'); wait = { kind: el.dataset.k, act: el.dataset.a, slot: +el.dataset.s, armed: false }; note = '';
+        render(el.dataset); if (wait.kind === 'pad') pollPad();
+      });
+      $('ct-done').onclick = done;
+      $('ct-reset').onclick = () => { Controls.reset(); wait = null; note = 'Controls reset to the defaults.'; SFX.play('ui'); render('reset'); };
+      const f = focus === 'reset' ? $('ct-reset') : focus && $('p-controls').querySelector(`[data-k="${focus.k}"][data-a="${focus.a}"][data-s="${focus.s}"]`);
+      if (f) f.focus({ preventScroll: true });
+    };
+    const finish = (from, what) => {
+      Controls.save(); const w = wait; wait = null; SFX.play('pickup');
+      note = from ? `${what} moved here from ${nameOf(from)}.` : '';
+      if (!note && !KEYMAP[w.act].some(Boolean) && !(PADMAP[w.act] || []).length) note = `${nameOf(w.act)} has no control now.`;
+      render({ k: w.kind, a: w.act, s: w.slot });
+    };
+    const onKey = (e) => {
+      if (!wait || wait.kind !== 'key') return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      const code = KEY_NORM[e.code] || e.code, w = wait;
+      if (code === 'Escape') { wait = null; note = ''; render({ k: 'key', a: w.act, s: w.slot }); return; }
+      if (code === 'Backspace' || code === 'Delete') { KEYMAP[w.act][w.slot] = null; finish(null); return; }
+      finish(Controls.setKey(w.act, w.slot, code), keyName(code));
+    };
+    const pollPad = () => {
+      if (!wait || wait.kind !== 'pad' || this.panel !== 'p-controls') return;
+      let hit = null;
+      for (const p of navigator.getGamepads ? navigator.getGamepads() : []) if (p && p.connected) p.buttons.forEach((b, i) => { if (b.pressed && i < 12) hit = i; });
+      if (hit === null) wait.armed = true;
+      else if (wait.armed) { finish(Controls.setPad(wait.act, hit), padName(hit)); return; }
+      setTimeout(pollPad, 30);
+    };
+    const done = () => { if (wait) { wait = null; render(); return; } removeEventListener('keydown', onKey, true); SFX.play('ui'); this.lastHint = null; back(); };
+    addEventListener('keydown', onKey, true);
+    render();
+    this.open('p-controls', { Escape: () => done() });
   },
 
   title() {
