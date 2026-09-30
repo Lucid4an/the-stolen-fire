@@ -19,13 +19,15 @@ Prometheus stole fire from the gods and gave it to humanity. Zeus chained him to
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
 | Move | A / D or arrows | Left stick / D-pad |
-| Jump | Space or Z | A |
+| Jump / double jump | Space or Z (press again in the air) | A |
 | Attack | J or X | X |
 | Special | K or C | Y |
 | Dash | Shift or L | B, LT, RT |
 | Cast fire | I or V | RB |
 | Use / talk | E or F | LB |
 | Pause | Esc or P | Start |
+
+Jump into a rock wall while holding toward it to grab the ledge and pull yourself up. Hold down during the grab to let go. You can also slide down walls and wall-jump.
 
 Touch controls appear on phones and tablets.
 

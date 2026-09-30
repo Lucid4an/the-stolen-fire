@@ -3,6 +3,7 @@
 const PM = {
   run: 150, accG: 1500, accA: 1000, decG: 1800, decA: 700, grav: 1150, fallMult: 1.45, maxFall: 430,
   jump: 365, jumpCut: 0.5, coyote: 0.1, buffer: 0.12, wallSlide: 70, wallJumpX: 210, wallJumpY: 340, wallLock: 0.14,
+  airJump: 330, climbTime: 0.22,
   dashSpeed: 400, dashTime: 0.16, dashCd: 0.42, castCost: 35,
 };
 
@@ -13,6 +14,7 @@ class Player {
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.face = 1;
     this.state = 'normal'; this.stateT = 0; this.anim = 0; this.onGround = false;
     this.coyoteT = 0; this.bufferT = 9; this.wallLockT = 0; this.wallDir = 0;
+    this.airJumps = 0; this.ledge = null; this.ledgeCd = 0;
     this.dashCharges = run.dashMax; this.dashCdT = 0; this.airDashes = 0; this.dashDir = 1; this.dashHits = new Set();
     this.atk = null; this.queued = false; this.comboStep = 0; this.comboT = 0;
     this.specialCdT = 0; this.castT = 0;
@@ -32,7 +34,7 @@ class Player {
     const I = Input;
     this.stateT += dt; this.invuln = Math.max(0, this.invuln - dt); this.flash = Math.max(0, this.flash - dt);
     this.specialCdT = Math.max(0, this.specialCdT - dt); this.castT = Math.max(0, this.castT - dt);
-    this.comboT = Math.max(0, this.comboT - dt); this.dropT = Math.max(0, this.dropT - dt);
+    this.comboT = Math.max(0, this.comboT - dt); this.dropT = Math.max(0, this.dropT - dt); this.ledgeCd = Math.max(0, this.ledgeCd - dt);
     this.bufferT += dt;
     if (I.pressed.jump) this.bufferT = 0;
     // dash charges recover over time
@@ -42,9 +44,10 @@ class Player {
     if (this.state === 'dead') { this.vx *= 0.9; this.vy = Math.min(this.vy + PM.grav * dt, PM.maxFall); room.move(this, dt); return; }
     if (this.state === 'hurt') { this.vy = Math.min(this.vy + PM.grav * dt, PM.maxFall); room.move(this, dt); if (this.stateT > 0.25) this.state = 'normal'; return; }
     if (this.state === 'dash') return this.updateDash(dt, room);
+    if (this.state === 'climb') return this.updateClimb(dt);
 
     const mx = I.mx, g = this.onGround;
-    if (g) { this.coyoteT = 0; this.airDashes = 0; } else this.coyoteT += dt;
+    if (g) { this.coyoteT = 0; this.airDashes = 0; this.airJumps = 0; } else this.coyoteT += dt;
 
     // --- horizontal
     const attacking = this.atk && this.atk.phase !== 'rec';
@@ -67,6 +70,11 @@ class Player {
     } else if (!g && this.wallDir && this.bufferT < PM.buffer) {
       this.bufferT = 9; this.vx = -this.wallDir * PM.wallJumpX; this.vy = -PM.wallJumpY; this.face = -this.wallDir; this.wallLockT = PM.wallLock; SFX.play('jump');
       Parts.burst(this.cx + this.wallDir * 6, this.cy, 6, ['#6a4a3a', '#8a6a5a'], 60, 0.3);
+    } else if (!g && this.bufferT < PM.buffer && this.airJumps < 1 && !attacking) {
+      // double jump: the stolen fire bursts from under his feet
+      this.bufferT = 9; this.airJumps++; this.vy = -PM.airJump; SFX.play('jump');
+      Parts.burst(this.cx, this.y + this.h, 14, ['#ffd36a', '#ff7a1f', '#e0441a'], 90, 0.35, { angle: Math.PI / 2, spread: 1.6, glow: 10 });
+      if (!I.down.jump) this.vy *= PM.jumpCut;
     }
     if (I.released.jump && this.vy < 0) this.vy *= PM.jumpCut;
 
@@ -76,10 +84,11 @@ class Player {
     this.wallDir = 0;
     if (!g && this.vy > 0 && mx !== 0 && !this.atk) {
       const probe = mx > 0 ? this.x + this.w + 1 : this.x - 1;
-      if (room.solidAt(probe, this.y + 6) && room.solidAt(probe, this.y + this.h - 6)) { this.wallDir = mx; this.vy = Math.min(this.vy, PM.wallSlide); this.face = mx; }
+      if (room.solidAt(probe, this.y + 6) && room.solidAt(probe, this.y + this.h - 6)) { this.wallDir = mx; this.vy = Math.min(this.vy, PM.wallSlide); this.face = mx; this.airJumps = 0; }
     }
 
     room.move(this, dt, { dropThrough: this.dropT > 0 });
+    if (!this.onGround && mx && this.vy > -80 && !this.atk && this.ledgeCd <= 0 && this.tryLedge(room, mx)) return;
     if (this.onGround && room.groundUnder(this) === T_LAVA) {
       this.vy = -360; this.onGround = false; Parts.burst(this.cx, this.y + this.h, 14, ['#ffd36a', '#ff7a1f'], 120, 0.5, { glow: 12 });
       this.takeHit(14, this.cx, 'lava', true);
@@ -94,6 +103,33 @@ class Player {
 
     this.state = this.wallDir ? 'wall' : 'normal';
     if (g && Math.abs(this.vx) > 15) this.anim += dt * Math.abs(this.vx) / 11;
+  }
+
+  // ---------------------------------------------------------------- ledge grab
+  // Pressing into a rock wall with its lip near your hands grabs it and pulls you up.
+  tryLedge(room, dir) {
+    const tx = Math.floor((dir > 0 ? this.x + this.w + 2 : this.x - 2) / TS), own = Math.floor(this.cx / TS);
+    for (let ty = Math.floor((this.y - 4) / TS); ty <= Math.floor((this.y + 16) / TS); ty++) {
+      const top = ty * TS;
+      if (top < this.y - 6 || top > this.y + 16) continue;
+      if (room.at(tx, ty) !== T_ROCK || room.at(tx, ty - 1) !== T_EMPTY || room.at(tx, ty - 2) !== T_EMPTY) continue;
+      if (room.at(own, ty - 1) === T_ROCK || room.at(own, ty - 2) === T_ROCK) continue;
+      this.ledge = { dir, top, x0: dir > 0 ? tx * TS - this.w : (tx + 1) * TS, y0: top - 6, x1: dir > 0 ? tx * TS + 2 : (tx + 1) * TS - this.w - 2 };
+      this.x = this.ledge.x0; this.y = this.ledge.y0; this.vx = 0; this.vy = 0; this.face = dir;
+      this.state = 'climb'; this.stateT = 0; this.airJumps = 0; this.onGround = false;
+      Parts.burst(this.cx + dir * 6, top, 5, ['#6a4a3a', '#8a6a5a'], 40, 0.25);
+      return true;
+    }
+    return false;
+  }
+  updateClimb(dt) {
+    const L = this.ledge, k = clamp(this.stateT / PM.climbTime, 0, 1);
+    // a brief hang lets you let go by holding down
+    if (this.stateT < 0.08 && Input.down.down) { this.state = 'normal'; this.ledgeCd = 0.35; return; }
+    const up = L.top - this.h;
+    if (k < 0.6) { this.x = L.x0; this.y = lerp(L.y0, up, easeOut(k / 0.6)); }
+    else { this.y = up; this.x = lerp(L.x0, L.x1, (k - 0.6) / 0.4); }
+    if (k >= 1) { this.state = 'normal'; this.onGround = true; this.vx = L.dir * 60; this.vy = 0; this.coyoteT = 0; }
   }
 
   // ---------------------------------------------------------------- dash

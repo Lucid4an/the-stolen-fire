@@ -21,6 +21,7 @@ function heroPose(p, t) {
   if (s === 'dead') return P;
   if (s === 'dash') { P.lean = 3; P.legA = 4; P.legB = -3; P.liftA = 2; P.arm = 'back'; return P; }
   if (s === 'wall') { P.legA = 2; P.legB = -1; P.liftA = 4; P.liftB = 1; P.lean = -1; P.arm = 'wall'; return P; }
+  if (s === 'climb') { P.legA = 1; P.legB = -2; P.liftA = 6; P.liftB = 3; P.tuck = true; P.lean = 1; P.arm = 'climb'; return P; }
   if (s === 'hurt') { P.lean = -2; P.legA = -2; P.legB = 2; P.arm = 'hurt'; return P; }
   if (!p.onGround) {
     if (p.vy < -40) { P.legA = 3; P.legB = -2; P.liftA = 5; P.liftB = 2; P.tuck = true; }
@@ -88,6 +89,7 @@ function drawHeroBody(ctx, ox, oy, f, P, t, ov) {
     D.r(3 + l + ex, -23 + b + ey, 3, 3, SKIN.light); shackle(2 + l + Math.round(ex * 0.6), -22 + b + Math.round(ey * 0.6));
   } else if (P.arm === 'cast') { D.r(1 + l, -24 + b, 8, 3, SKIN.base); D.r(8 + l, -25 + b, 2, 4, SKIN.light); shackle(4 + l, -24 + b); }
   else if (P.arm === 'hurt') { D.r(2 + l, -26 + b, 3, 6, SKIN.base); }
+  else if (P.arm === 'climb') { D.r(3 + l, -35 + b, 3, 11, SKIN.base); D.r(4 + l, -37 + b, 4, 2, SKIN.light); shackle(3 + l, -30 + b); }
   else { D.r(2 + l, -24 + b, 3, 8, SKIN.base); D.r(2 + l, -16 + b, 3, 2, SKIN.light); shackle(2 + l, -19 + b); }
   // dangling broken chain from the front shackle
   if (P.arm === 'ready') { const sw = Math.round(Math.sin(t * 6) * 1.5); for (let k = 0; k < 3; k++) D.r(3 + l - sw * k, -16 + b + k * 2, 1, 2, k % 2 ? '#5a5260' : '#8a8090'); }
