@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Stolen Fire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700&family=Pixelify+Sans:wght@400;600&display=swap">
+<style>
+  /* One screen: the canvas scales by whole pixels; every overlay is sized in game pixels (--px). */
+  :root {
+    --void: #050203;          /* Tartarus */
+    --stone: #140b09;         /* tablet */
+    --stone2: #1f120e;
+    --line: #4a261a;
+    --bone: #f1e2c8;          /* text */
+    --ash: #a8917a;           /* secondary text */
+    --fire: #ff8a2a;          /* the stolen fire: the one accent */
+    --ichor: #8fe8ff;
+    --blood: #d2342a;
+    --display: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+    --carved: 'Cinzel', Georgia, serif;
+    --ui: 'Pixelify Sans', ui-monospace, Consolas, monospace;
+    --px: 2px;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--void); color: var(--bone); font-family: var(--ui); font-variant-ligatures: none; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; }
+  #app { position: fixed; inset: 0; display: grid; place-items: center; }
+  #stage { position: relative; overflow: hidden; background: #000; }
+  #game { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .layer { position: absolute; inset: 0; pointer-events: none; font-size: calc(var(--px) * 7); }
+
+  /* HUD */
+  .tl { position: absolute; left: calc(var(--px) * 8); top: calc(var(--px) * 7); display: grid; gap: calc(var(--px) * 3); }
+  .bar { position: relative; width: calc(var(--px) * 110); height: calc(var(--px) * 9); background: #1a0706; border: var(--px) solid #000; box-shadow: 0 0 0 var(--px) #6a3a1e; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+  #hp-fill { background: linear-gradient(#ff6a5a, #c42a22 60%, #8a1414); }
+  #hp-text { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--px) * 6); color: #fff; text-shadow: 0 var(--px) 0 #000; font-variant-numeric: tabular-nums; }
+  #flame-bar { height: calc(var(--px) * 5); width: calc(var(--px) * 80); box-shadow: 0 0 0 var(--px) #4a2a14; }
+  #flame-fill { background: linear-gradient(90deg, #b83a14, var(--fire), #ffd36a); }
+  #flame-bar.ready { box-shadow: 0 0 0 var(--px) var(--fire), 0 0 calc(var(--px) * 6) var(--fire); }
+  .row-hud { display: flex; align-items: center; gap: calc(var(--px) * 4); font-size: calc(var(--px) * 5.5); color: var(--ash); text-shadow: 0 var(--px) 0 #000; }
+  #dash-pips { color: var(--fire); letter-spacing: var(--px); }
+  #boons { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 2); max-width: calc(var(--px) * 180); }
+  #boons span { font-size: calc(var(--px) * 5); padding: 0 calc(var(--px) * 2); background: rgba(10,4,3,.8); border-left: var(--px) solid var(--c); color: var(--bone); }
+  .tr { position: absolute; right: calc(var(--px) * 8); top: calc(var(--px) * 7); text-align: right; display: grid; gap: calc(var(--px) * 2); text-shadow: 0 var(--px) 0 #000; }
+  #ichor { color: var(--ichor); font-weight: 600; font-variant-numeric: tabular-nums; }
+  #ichor::before { content: ''; display: inline-block; width: calc(var(--px) * 3); height: calc(var(--px) * 5); background: var(--ichor); margin-right: calc(var(--px) * 2); box-shadow: 0 0 calc(var(--px) * 3) var(--ichor); }
+  #where { color: var(--ash); font-size: calc(var(--px) * 5.5); }
+  #bossbar { position: absolute; left: 50%; top: calc(var(--px) * 22); transform: translateX(-50%); width: calc(var(--px) * 200); text-align: center; }
+  #boss-name { font-family: var(--carved); font-weight: 700; letter-spacing: .12em; font-size: calc(var(--px) * 8); color: var(--bone); text-shadow: 0 0 calc(var(--px) * 6) #ff6a1a, 0 var(--px) 0 #000; }
+  #bossbar .bar { width: 100%; height: calc(var(--px) * 5); margin-top: calc(var(--px) * 2); }
+  #boss-fill { background: linear-gradient(#ffb04a, #c2401a); }
+  #say { position: absolute; left: 50%; top: calc(var(--px) * 48); transform: translateX(-50%); max-width: 72%; text-align: center; background: rgba(8,3,2,.84); border: var(--px) solid #000; box-shadow: 0 0 0 var(--px) var(--line); padding: calc(var(--px) * 3) calc(var(--px) * 8); display: grid; gap: var(--px); }
+  #say-who { font-family: var(--carved); letter-spacing: .18em; font-size: calc(var(--px) * 5.5); }
+  #say-line { font-size: calc(var(--px) * 6.5); }
+  #flash { position: absolute; left: 50%; bottom: calc(var(--px) * 22); transform: translateX(-50%); background: rgba(8,3,2,.86); border: var(--px) solid var(--line); padding: calc(var(--px) * 2) calc(var(--px) * 7); font-size: calc(var(--px) * 6.5); white-space: nowrap; }
+  .keys { position: absolute; left: calc(var(--px) * 8); bottom: calc(var(--px) * 6); font-size: calc(var(--px) * 5); color: #7a6452; text-shadow: 0 var(--px) 0 #000; }
+
+  /* Panels: carved stone tablets */
+  .panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92%, calc(var(--px) * 300)); max-height: 92%; overflow: auto; box-sizing: border-box;
+    background: var(--stone); border: var(--px) solid #000; box-shadow: 0 0 0 var(--px) var(--line), 0 0 0 calc(var(--px) * 3) #000, 0 calc(var(--px) * 10) calc(var(--px) * 40) rgba(0,0,0,.7);
+    padding: calc(var(--px) * 12) calc(var(--px) * 14); pointer-events: auto; font-size: calc(var(--px) * 7); display: grid; gap: calc(var(--px) * 6); }
+  .panel h2 { margin: 0; font-family: var(--carved); font-weight: 700; font-size: calc(var(--px) * 17); letter-spacing: .03em; line-height: 1; text-wrap: balance; }
+  .eyebrow { font-size: calc(var(--px) * 5.5); letter-spacing: .2em; text-transform: uppercase; color: var(--fire); }
+  .who { font-family: var(--carved); font-weight: 700; font-size: calc(var(--px) * 10); letter-spacing: .06em; color: var(--fire); }
+  .who small { font-family: var(--ui); font-weight: 400; font-size: calc(var(--px) * 5.5); color: var(--ash); letter-spacing: 0; margin-left: calc(var(--px) * 4); }
+  .line { margin: 0; line-height: 1.45; color: var(--bone); }
+  .line.dim, .dim { color: var(--ash); }
+  .story { margin: 0; font-family: var(--carved); font-weight: 600; font-size: calc(var(--px) * 11); line-height: 1.45; text-wrap: pretty; }
+  .dots { display: flex; gap: calc(var(--px) * 3); }
+  .dots i { width: calc(var(--px) * 10); height: calc(var(--px) * 2); background: var(--line); }
+  .dots i.on { background: var(--fire); box-shadow: 0 0 calc(var(--px) * 4) var(--fire); }
+  .row { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 4); }
+  .panel button { font-family: var(--ui); font-size: calc(var(--px) * 7); color: var(--void); background: var(--fire); border: 0; padding: calc(var(--px) * 4) calc(var(--px) * 10); cursor: pointer; box-shadow: 0 calc(var(--px) * 2) 0 #8a3a10; }
+  .panel button.ghost { background: transparent; color: var(--bone); box-shadow: inset 0 0 0 var(--px) var(--line); }
+  .panel button:focus-visible, .panel button:hover { outline: var(--px) solid var(--bone); outline-offset: var(--px); }
+  .panel button[disabled] { opacity: .4; cursor: not-allowed; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--px) * 80), 1fr)); gap: calc(var(--px) * 5); }
+  .panel .card { display: grid; gap: calc(var(--px) * 2); align-content: start; text-align: left; background: var(--stone2); color: var(--bone); box-shadow: inset 0 calc(var(--px) * 2) 0 var(--c), inset 0 0 0 var(--px) var(--line); padding: calc(var(--px) * 6); font-size: calc(var(--px) * 6); line-height: 1.35; }
+  .panel .card b { font-family: var(--carved); font-size: calc(var(--px) * 8); color: var(--c); }
+  .panel .card .slot { font-size: calc(var(--px) * 5); letter-spacing: .15em; text-transform: uppercase; color: var(--ash); }
+  .panel .card.on { box-shadow: inset 0 calc(var(--px) * 2) 0 var(--c), inset 0 0 0 var(--px) var(--c); }
+  .list { display: grid; gap: calc(var(--px) * 3); }
+  .panel .up { display: grid; grid-template-columns: 1fr auto; gap: 0 calc(var(--px) * 6); text-align: left; background: var(--stone2); color: var(--bone); box-shadow: inset 0 0 0 var(--px) var(--line); font-size: calc(var(--px) * 6); }
+  .panel .up b { font-family: var(--carved); font-size: calc(var(--px) * 7); }
+  .panel .up b small { font-family: var(--ui); color: var(--ash); font-weight: 400; }
+  .panel .up span { grid-column: 1; color: var(--ash); }
+  .panel .up em { grid-column: 2; grid-row: 1 / 3; align-self: center; font-style: normal; color: var(--ichor); white-space: nowrap; }
+  .ichor { color: var(--ichor); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--px) * 55), 1fr)); gap: calc(var(--px) * 3); }
+  .stats div { background: var(--stone2); padding: calc(var(--px) * 3) calc(var(--px) * 5); display: grid; }
+  .stats b { font-size: calc(var(--px) * 11); font-variant-numeric: tabular-nums; }
+  .stats span { font-size: calc(var(--px) * 5); color: var(--ash); }
+
+  /* Title */
+  #p-title { left: calc(var(--px) * 26); top: 50%; transform: translateY(-50%); width: min(58%, calc(var(--px) * 200)); background: none; box-shadow: none; border: 0; padding: 0; gap: calc(var(--px) * 8); }
+  .logo { margin: 0; font-family: var(--display); font-weight: 900; font-size: calc(var(--px) * 30); line-height: .95; color: var(--bone); text-shadow: 0 0 calc(var(--px) * 16) rgba(255,110,30,.55), 0 calc(var(--px) * 1.5) 0 #3a0e06; }
+  .logo span { display: block; font-size: .42em; letter-spacing: .2em; padding-left: .2em; color: var(--fire); }
+  .tag { margin: 0; color: var(--ash); font-size: calc(var(--px) * 7); line-height: 1.4; max-width: 40ch; }
+  #title-menu { display: grid; gap: calc(var(--px) * 3); justify-items: start; }
+  #title-menu button.ghost { padding: calc(var(--px) * 2) calc(var(--px) * 6); }
+  #title-stats { display: flex; gap: calc(var(--px) * 8); flex-wrap: wrap; font-size: calc(var(--px) * 5.5); color: var(--ash); }
+  #title-stats b { color: var(--bone); }
+  .title-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,2,3,.92), rgba(5,2,3,.55) 50%, rgba(5,2,3,0) 80%); pointer-events: none; }
+
+  /* Touch */
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #touch .pad, #touch .acts { position: absolute; bottom: 14px; display: grid; gap: 8px; pointer-events: auto; }
+  #touch .pad { left: 16px; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); }
+  #touch .acts { right: 16px; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); }
+  #touch button { border-radius: 50%; background: rgba(255,138,42,.14); border: 2px solid rgba(255,138,42,.45); color: var(--bone); font: 12px var(--ui); }
+  #touch button.on { background: rgba(255,138,42,.45); }
+  @media (prefers-reduced-motion: reduce) { .panel button { transition: none; } }
+</style>
+
+<div id="app">
+  <div id="stage">
+    <canvas id="game" width="480" height="270" aria-label="The Stolen Fire"></canvas>
+
+    <div id="hud" class="layer" hidden>
+      <div class="tl">
+        <div class="bar"><i id="hp-fill"></i><span id="hp-text">100 / 100</span></div>
+        <div class="row-hud"><div class="bar" id="flame-bar"><i id="flame-fill"></i></div><span>FIRE</span><span id="dash-pips"></span></div>
+        <div id="boons"></div>
+      </div>
+      <div class="tr"><span id="ichor">0</span><span id="where"></span></div>
+      <div id="bossbar" hidden><div id="boss-name"></div><div class="bar"><i id="boss-fill"></i></div></div>
+      <div id="say" hidden><span id="say-who"></span><span id="say-line"></span></div>
+      <div id="flash" hidden></div>
+      <div class="keys">J attack &middot; K special &middot; I cast fire &middot; Shift dash &middot; E use &middot; Esc pause</div>
+    </div>
+
+    <div class="layer" style="pointer-events:none">
+      <div class="panel" id="p-title" hidden>
+        <h1 class="logo"><span>The</span>Stolen Fire</h1>
+        <p class="tag">Chained in Tartarus for five hundred years, Prometheus breaks free, steals the fire again, and climbs toward Zeus.</p>
+        <nav id="title-menu">
+          <button type="button" id="btn-start">Begin the escape</button>
+          <button type="button" class="ghost" id="btn-story">The story</button>
+          <button type="button" class="ghost" id="btn-sound">Sound: on</button>
+        </nav>
+        <div id="title-stats"></div>
+      </div>
+      <div class="panel" id="p-story" hidden></div>
+      <div class="panel" id="p-dialog" hidden></div>
+      <div class="panel" id="p-boon" hidden></div>
+      <div class="panel" id="p-weapon" hidden></div>
+      <div class="panel" id="p-altar" hidden></div>
+      <div class="panel" id="p-death" hidden></div>
+      <div class="panel" id="p-pause" hidden>
+        <h2>Paused</h2>
+        <p class="line dim">A/D move &middot; Space jump (hold toward a wall to slide, jump off it) &middot; J attack &middot; K special &middot; I cast the fire &middot; Shift dash (in the air too) &middot; E use doors, rewards and people &middot; S + Space drops through ledges. Gamepad supported.</p>
+        <div class="row"><button type="button" id="btn-resume">Resume</button><button type="button" class="ghost" id="btn-abandon">Give up this escape</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="touch" hidden>
+  <div class="pad"><span></span><button data-a="up">&#9650;</button><span></span><button data-a="left">&#9664;</button><button data-a="down">&#9660;</button><button data-a="right">&#9654;</button></div>
+  <div class="acts"><button data-a="cast">Cast</button><button data-a="special">Spec</button><button data-a="interact">Use</button><button data-a="dash">Dash</button><button data-a="attack">Hit</button><button data-a="jump">Jump</button></div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/room.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/data.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/run.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
